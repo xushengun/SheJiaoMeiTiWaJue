@@ -2,11 +2,21 @@
 """
 Created on Tue Dec 31 10:12:07 2019
 
-@author: a
+@author: 徐柳青
+@Email:45045590@qq.com
 """
 
 
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.remote.webelement import WebElement
+from selenium.common.exceptions import TimeoutException, NoSuchElementException 
+from selenium.common.exceptions import StaleElementReferenceException 
+from selenium.common.exceptions import ElementNotInteractableException
 import time
 import re
 import pandas as pd
@@ -175,9 +185,9 @@ def randGet_ID(db):
     with sqlite3.connect(db) as conn:
         get_E_MID="SELECT * From Summarys"
         exsist_MID = pd.read_sql(con=conn,sql=get_E_MID)['mid']
-    Id = int(str(random.random())[8:-1]) 
+    Id = random.choice(exsist_MID)
     while Id in exsist_MID:
-        Id = int(str(random.random())[8:-1])    
+        Id = random.choice(range(80000000))
     return Id
 
 if __name__ == '__main__':
@@ -198,12 +208,13 @@ if __name__ == '__main__':
     tail_url = {'关注':'/fans/follow','粉丝':'/fans/fans'}
     headers = {'user-agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36'}
     #随机数量
-    n = 20
+    n = 200
     i=0
-    while i<=20:
+    while i <= n:
         Id = randGet_ID(db)
         summaries_temp = requests.get('https://api.bilibili.com/x/space/upstat?mid='+ str(Id),headers=headers)
-        if json.loads(summaries_temp.text)["code"] != 40061:
+        code = json.loads(summaries_temp.text)["code"]
+        if  code not in [40061 ,0]:
             Summarys_Info = get_Summary(Id=Id)
             Fans_Dict = get_Fans(Id=Id)
             Concerns_Dict = get_Concerns(Id=Id)
