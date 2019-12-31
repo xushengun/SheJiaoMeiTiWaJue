@@ -28,6 +28,7 @@ import json
 
 def get_Summary(Id):
     browser.get(base_url+str(Id))
+    browser.execute_script('window.scrollTo(0, document.body.scrollHeight)')
     time.sleep(2)
     #获取网页的HTML代码
     html=browser.page_source
@@ -36,33 +37,48 @@ def get_Summary(Id):
     #查找包含统计信息的部分
     nstatistics = soup.find("div",class_="n-statistics")
     #获取统计信息，创建一个新词典
-    stat_Info = {'mid':[Id],'播主名称':[soup.find("span",id="h-name").string]}
-    #创建一个re正则搜索规则
-    parse_number = re.compile(r'\d*')
-    for type_tag in ["a","div"]:
-        for i in nstatistics.find_all(type_tag):
-            name = i.p.string
-            number_str =parse_number.findall(i.get("title"))
-            #print(name,':',int("".join(number_str)))
-            stat_Info[name] = int("".join(number_str))
-    #获取播主主页空间中的内容
-    space = soup.find('div',class_="s-space")
-    #获取上传的视频数/相册数
-    stat_Info['视频数'] = [int(space.find('span').string)]
-    try: 
-        stat_Info['相册数'] = [int(space.find('div',class_="section album").span.string)]
+    try:
+        播主名称 = soup.find("span",id="h-name").string
+        stat_Info = {'mid':[Id],'播主名称':[播主名称]}
+        #创建一个re正则搜索规则
+        parse_number = re.compile(r'\d*')
+        for type_tag in ["a","div"]:
+            for i in nstatistics.find_all(type_tag):
+                name = i.p.string
+                number_str =parse_number.findall(i.get("title"))
+                #print(name,':',int("".join(number_str)))
+                stat_Info[name] = int("".join(number_str))
+        for i in ['关注数', '粉丝数', '获赞数', '播放数', '阅读数']:
+            if i not in stat_Info.keys():
+                stat_Info[i] = [None]
+        #获取播主主页空间中的内容
+        space = soup.find('div',class_="s-space")
+        #获取上传的视频数/相册数
+        try: 
+            stat_Info['视频数'] = [int(space.find('div',class_="section video full-rows").h3.span.string)]
+        except AttributeError:
+            stat_Info['视频数'] = [None]
+        try: 
+            stat_Info['相册数'] = [int(space.find('div',class_="section album").span.string)]
+        except AttributeError:
+            stat_Info['相册数'] = [None]
+        stat_Info['等级'] =  [int(soup.find('a',class_="h-level m-level").get('lvl'))]
+        if '年度大会员' == soup.find('a',class_="h-vipType").string:
+            stat_Info['年度大会员'] = [1]
+        else:
+            stat_Info['年度大会员'] = [0]
+        #return stat_Info
     except AttributeError:
-        stat_Info['相册数'] =[0]
-    stat_Info['等级'] =  [int(soup.find('a',class_="h-level m-level").get('lvl'))]
-    if '年度大会员' == soup.find('a',class_="h-vipType").string:
-        stat_Info['年度大会员'] = [1]
-    else:
-        stat_Info['年度大会员'] = [0]
+        stat_Info = {'mid':[Id],'播主名称':["不存在"],
+                     '关注数':[None],'粉丝数':[None],'获赞数':[None],
+                     '播放数':[None],'视频数':[None],'相册数':[None],
+                     '等级':[None],'年度大会员':[None]}
     return stat_Info
 
 def get_Concerns(Id):
     #获取关注的信息
     browser.get(base_url+str(Id)+tail_url['关注'])
+    browser.execute_script('window.scrollTo(0, document.body.scrollHeight)')
     names = []
     IDs = []
     TAGs = []
@@ -93,7 +109,7 @@ def get_Concerns(Id):
         except NoSuchElementException:
             next_Page = False
     if len(names) == len(IDs) == len (TAGs):
-        return {'ID':IDs,'名字': names ,'mid':[Id]*len(names),'TAG':TAGs,'VIP':VIPs}
+        return {'IDs':IDs,'名称': names ,'mid':[Id]*len(names),'TAG':TAGs,'VIP':VIPs}
     else:
         print("B站可能已经改变规则，请认真核对！！！")
 
@@ -101,6 +117,7 @@ def get_Concerns(Id):
 def get_Fans(Id):
     #获取粉丝的信息
     browser.get(base_url+str(Id)+tail_url['粉丝'])
+    browser.execute_script('window.scrollTo(0, document.body.scrollHeight)')
     names = []
     IDs = []
     TAGs = []
@@ -126,7 +143,7 @@ def get_Fans(Id):
         except NoSuchElementException:
             next_Page = False
     if len(names) == len(IDs) == len (TAGs):
-        return {'ID':IDs,'名字': names ,'mid':[Id]*len(names),'TAG':TAGs}
+        return {'IDs':IDs,'名称': names ,'mid':[Id]*len(names),'TAG':TAGs}
     else:
         print("B站可能已经改变规则，请认真核对！！！")
 
@@ -141,6 +158,7 @@ def create_DB(db):
             "粉丝数 INTEGER, "
             "获赞数 INTEGER, "
             "播放数 INTEGER, "
+            "阅读数 INTEGER, "
             "视频数 INTEGER, "
             "相册数 INTEGER, "
             "等级 INTEGER, "
@@ -150,8 +168,9 @@ def create_DB(db):
 
         Fans = (
         "Create Table If Not Exists Fans( "
-            "ID INTEGER PRIMARY KEY Not NULL, "
-            "名字 varchar(100), "
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "IDs INTEGER,"
+            "名称 varchar(100), "
             "mid INTEGER, "
             "TAG varchar(100) "
         ")"
@@ -159,8 +178,9 @@ def create_DB(db):
 
         Concerns = (
         "Create Table If Not Exists Concerns( "
-            "ID INTEGER PRIMARY KEY Not NULL, "
-            "名字 varchar(100), "
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "IDs INTEGER,"
+            "名称 varchar(100), "
             "mid INTEGER, "
             "TAG varchar(100), "
             "VIP INTEGER "
@@ -185,20 +205,26 @@ def randGet_ID(db):
     with sqlite3.connect(db) as conn:
         get_E_MID="SELECT * From Summarys"
         exsist_MID = pd.read_sql(con=conn,sql=get_E_MID)['mid']
-    Id = random.choice(exsist_MID)
-    while Id in exsist_MID:
+    Ok = True
+    while Ok:
         Id = random.choice(range(80000000))
-    return Id
+        if Id in exsist_MID.to_list():
+            pass
+        else:
+            Ok = False
+            return Id
 
 if __name__ == '__main__':
     #打开浏览器并预热
-    profile=webdriver.FirefoxOptions()
-    profile.add_argument('-headless') #设置无头模式
+    #profile=webdriver.FirefoxOptions()
+    #profile.add_argument('-headless') #设置无头模式
     #设置代理服务器
     #profile.set_preference('network.proxy.type', 1)
     #profile.set_preference('network.proxy.http',IP)#IP为你的代理服务器地址:如‘127.0.0.0’，字符串类型
     #profile.set_preference('network.proxy.http_port', PORT)  #PORT为代理服务器端口号:如，9999，整数类型
-    browser = webdriver.Firefox(options=profile)
+    #browser = webdriver.Firefox(options=profile)
+    browser = webdriver.Firefox()
+    browser.maximize_window()
     time.sleep(3)
     #链接数据库
     db = "bilibli.db"
@@ -213,8 +239,8 @@ if __name__ == '__main__':
     while i <= n:
         Id = randGet_ID(db)
         summaries_temp = requests.get('https://api.bilibili.com/x/space/upstat?mid='+ str(Id),headers=headers)
-        code = json.loads(summaries_temp.text)["code"]
-        if  code not in [40061 ,0]:
+        code = json.loads(summaries_temp.text)["message"]
+        if  code != "用户不存在":
             Summarys_Info = get_Summary(Id=Id)
             Fans_Dict = get_Fans(Id=Id)
             Concerns_Dict = get_Concerns(Id=Id)
