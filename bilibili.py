@@ -227,7 +227,7 @@ if __name__ == '__main__':
     browser.maximize_window()
     time.sleep(3)
     #链接数据库
-    db = "bilibli.db"
+    db = "bilibili.db"
     create_DB(db)
     #基础链接
     base_url = 'https://space.bilibili.com/'
